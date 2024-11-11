@@ -1,0 +1,160 @@
+import React, { useEffect, useState } from "react";
+import {
+  Editor,
+  EditorState,
+  RichUtils,
+  convertToRaw,
+  convertFromRaw,
+  Modifier,
+} from "draft-js";
+import "draft-js/dist/Draft.css";
+// import Immutable from "immutable";
+
+const DraftEditor = () => {
+  const [editorState, setEditorState] = useState(() =>
+    EditorState.createEmpty()
+  );
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedContent = localStorage.getItem("editorContent");
+    if (savedContent) {
+      const contentState = convertFromRaw(JSON.parse(savedContent));
+      setEditorState(EditorState.createWithContent(contentState));
+    }
+  }, []);
+
+  // Save content to localStorage
+  const handleSave = () => {
+    const contentState = editorState.getCurrentContent();
+    localStorage.setItem(
+      "editorContent",
+      JSON.stringify(convertToRaw(contentState))
+    );
+  };
+
+  // Handle editor state change
+  const handleChange = (newEditorState) => {
+    setEditorState(newEditorState);
+  };
+
+  const styleMap = {
+    RED: { color: "red" },
+    BOLD: { fontWeight: "bold" },
+    UNDERLINE: { textDecoration: "underline" },
+  };
+
+  const handleBeforeInput = (chars) => {
+    const currentContent = editorState.getCurrentContent();
+    const selection = editorState.getSelection();
+    const startKey = selection.getStartKey();
+    const startOffset = selection.getStartOffset();
+    const block = currentContent.getBlockForKey(startKey);
+    const text = block.getText().slice(0, startOffset) + chars;
+
+
+    let newState;
+    if (text === "# ") {
+      // Apply heading format
+      const newEditorState = RichUtils.toggleBlockType(
+        editorState,
+        "header-one"
+      );
+
+      // Remove the `# ` characters
+      const newContentState = Modifier.replaceText(
+        newEditorState.getCurrentContent(),
+        selection.merge({
+          anchorOffset: 0,
+          focusOffset: startOffset + 1,
+        }),
+        "" // Replace `# ` with an empty string
+      );
+
+      // Update the editor state
+      setEditorState(
+        EditorState.push(newEditorState, newContentState, "change-block-type")
+      );
+      return "handled";
+    } else if (text === "* ") {
+      newState = RichUtils.toggleInlineStyle(editorState, "BOLD");
+
+      const newContentState = Modifier.replaceText(
+        newState.getCurrentContent(),
+        selection.merge({
+          anchorOffset: 0,
+          focusOffset: startOffset + 1,
+        }),
+        " ",
+        newState.getCurrentInlineStyle()
+      );
+
+      setEditorState(
+        EditorState.push(newState, newContentState, "change-inline-style")
+      );
+
+      return "handled";
+    } else if (text === "** ") {
+      newState = RichUtils.toggleInlineStyle(editorState, "RED");
+
+      const newContentState = Modifier.replaceText(
+        newState.getCurrentContent(),
+        selection.merge({
+          anchorOffset: 0,
+          focusOffset: startOffset + 1,
+        }),
+        " ",
+        newState.getCurrentInlineStyle()
+      );
+
+      setEditorState(
+        EditorState.push(newState, newContentState, "change-inline-style")
+      );
+
+      return "handled";
+    } else if (text === "*** ") {
+      newState = RichUtils.toggleInlineStyle(editorState, "UNDERLINE");
+
+      const newContentState = Modifier.replaceText(
+        newState.getCurrentContent(),
+        selection.merge({
+          anchorOffset: 0,
+          focusOffset: startOffset + 1,
+        }),
+        " ",
+        newState.getCurrentInlineStyle()
+      );
+
+      setEditorState(
+        EditorState.push(newState, newContentState, "change-inline-style")
+      );
+
+      return "handled";
+    }
+    return "not-handled";
+  };
+
+  return (
+    <div style={{ padding: "20px" }}>
+      <h1>Demo editor by &lt;Name&gt;</h1>
+      <button onClick={handleSave}>Save</button>
+      <div
+        style={{
+          border: "3px solid #ccc",
+          padding: "10px",
+          minHeight: "200px",
+        }}
+      >
+        <Editor
+          editorState={editorState}
+          onChange={handleChange}
+          handleBeforeInput={handleBeforeInput}
+          customStyleMap={styleMap}
+        />
+      </div>
+      <div>{JSON.stringify(convertToRaw(editorState.getCurrentContent()))}</div>
+    </div>
+  );
+};
+
+export default DraftEditor;
